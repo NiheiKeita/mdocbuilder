@@ -88,6 +88,7 @@ async function main() {
   await copyClientAssets();
   await copyDocAssets(assetFiles);
   await writeDataFiles({ docs, tree });
+  await fs.writeFile(path.join(distDir, ".nojekyll"), "");
 
   console.log(`Built ${docs.length} markdown document(s) into ${path.relative(rootDir, distDir)}.`);
 }
