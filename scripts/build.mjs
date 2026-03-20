@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
 import matter from "gray-matter";
@@ -33,34 +34,35 @@ async function main() {
 
   const markdownFiles = await findMarkdownFiles(docsDir);
   const assetFiles = await findAssetFiles(docsDir);
-  const docs = [];
-  const routeToDoc = new Map();
+  const sourceDocs = [];
 
   for (const absolutePath of markdownFiles) {
     const doc = await parseDocument(absolutePath);
-    docs.push(doc);
-    routeToDoc.set(doc.path, doc);
+    sourceDocs.push(doc);
   }
 
+  const tree = buildDirectoryTree(sourceDocs);
+  const generatedDocs = createGeneratedDirectoryDocs(tree);
+  const docs = [...sourceDocs, ...generatedDocs];
   docs.sort((a, b) => a.path.localeCompare(b.path));
 
-  const tree = buildDirectoryTree(docs);
+  const routeToDoc = new Map(docs.map((doc) => [doc.path, doc]));
   const routeTitleMap = new Map(
     docs.map((doc) => [
       doc.path,
-      doc.isIndex && doc.title === "Home" ? "Home" : doc.title,
+      doc.title,
     ]),
   );
 
   for (const doc of docs) {
-    const siblings = getSiblingDocuments(tree, doc);
-    const childDocuments = getChildDocuments(tree, doc);
+    const sectionEntries = getSectionEntries(tree, doc);
     const breadcrumbs = buildBreadcrumbs(doc, routeTitleMap);
+    const bodyHtml = buildDocumentBodyHtml(doc, tree);
     const html = renderDocumentPage({
       doc,
       breadcrumbs,
-      siblings,
-      childDocuments,
+      sectionEntries,
+      bodyHtml,
     });
     await writePage(doc.path, html);
   }
@@ -90,7 +92,9 @@ async function main() {
   await writeDataFiles({ docs, tree });
   await fs.writeFile(path.join(distDir, ".nojekyll"), "");
 
-  console.log(`Built ${docs.length} markdown document(s) into ${path.relative(rootDir, distDir)}.`);
+  console.log(
+    `Built ${sourceDocs.length} markdown document(s) and ${generatedDocs.length} generated directory page(s) into ${path.relative(rootDir, distDir)}.`,
+  );
 }
 
 async function resetDist() {
@@ -182,6 +186,7 @@ async function parseDocument(absolutePath) {
     directory,
     html,
     isIndex,
+    isGeneratedIndex: false,
     fallbackName: fallbackDisplayName(relativeDocPath),
   };
 }
@@ -277,6 +282,13 @@ function rewriteLinkValue(value, sourceDirectory) {
   const absoluteTarget = decodedPath.startsWith("/")
     ? path.join(docsDir, decodedPath)
     : path.resolve(sourceDirectory, decodedPath);
+
+  if (existsSync(absoluteTarget) && statSync(absoluteTarget).isDirectory()) {
+    const directoryRelative = toPosix(path.relative(docsDir, absoluteTarget));
+    if (!directoryRelative.startsWith("..")) {
+      return `${prefixBasePath(`/${directoryRelative}/`)}${rawHash ? `#${rawHash}` : ""}`;
+    }
+  }
 
   const outputRelative = toPosix(path.relative(docsDir, absoluteTarget));
   if (!outputRelative.startsWith("..")) {
@@ -409,49 +421,10 @@ function createTreeNode(name, route, title) {
     route,
     title,
     indexDocument: null,
+    generatedDocument: null,
     documents: [],
     children: new Map(),
   };
-}
-
-function getSiblingDocuments(tree, doc) {
-  const node = findTreeNode(tree, doc.directory);
-  if (!node) {
-    return [];
-  }
-
-  const siblings = [];
-
-  if (!doc.isIndex && node.indexDocument) {
-    siblings.push(node.indexDocument);
-  }
-
-  for (const item of node.documents) {
-    if (item.path !== doc.path) {
-      siblings.push(item);
-    }
-  }
-
-  return siblings;
-}
-
-function getChildDocuments(tree, doc) {
-  if (!doc.isIndex) {
-    return [];
-  }
-
-  const node = findTreeNode(tree, doc.directory);
-  if (!node) {
-    return [];
-  }
-
-  const childItems = [...node.documents];
-  for (const childNode of node.children.values()) {
-    if (childNode.indexDocument) {
-      childItems.push(childNode.indexDocument);
-    }
-  }
-  return childItems.sort((a, b) => a.title.localeCompare(b.title));
 }
 
 function findTreeNode(tree, directory) {
@@ -469,25 +442,155 @@ function findTreeNode(tree, directory) {
   return current;
 }
 
-function buildBreadcrumbs(doc, routeTitleMap) {
-  const crumbs = [{ label: "Home", href: "/" }];
-  const relativeDocPath = doc.sourcePath.replace(/^docs\//, "");
-  const withoutExtension = relativeDocPath.replace(/\.md$/, "");
-  const segments = withoutExtension.split("/");
+function findTreeNodeByRoute(tree, route) {
+  const normalized = route.replace(/^\/|\/$/g, "");
+  if (!normalized) {
+    return tree;
+  }
+  return findTreeNode(tree, normalized);
+}
 
-  if (segments.length === 1 && segments[0] === "index") {
+function createGeneratedDirectoryDocs(tree) {
+  const generatedDocs = [];
+
+  function visit(node) {
+    if (node.route !== "/" && !node.indexDocument) {
+      const entries = getDirectoryEntries(node);
+      const generatedDoc = {
+        title: node.title,
+        description: `${node.title} 配下の一覧です。`,
+        path: node.route,
+        sourcePath: "",
+        headings: [],
+        plainText: [node.title, ...entries.map((entry) => `${entry.title} ${entry.description || ""}`)]
+          .join(" ")
+          .trim(),
+        updatedAt: getLatestUpdatedAt(node),
+        directory: parentDirectoryFromRoute(node.route),
+        html: "",
+        isIndex: true,
+        isGeneratedIndex: true,
+        fallbackName: node.title,
+      };
+      node.generatedDocument = generatedDoc;
+      generatedDocs.push(generatedDoc);
+    }
+
+    for (const child of node.children.values()) {
+      visit(child);
+    }
+  }
+
+  visit(tree);
+  return generatedDocs;
+}
+
+function getLatestUpdatedAt(node) {
+  const timestamps = [];
+  if (node.indexDocument?.updatedAt) {
+    timestamps.push(node.indexDocument.updatedAt);
+  }
+  for (const doc of node.documents) {
+    timestamps.push(doc.updatedAt);
+  }
+  for (const child of node.children.values()) {
+    timestamps.push(getLatestUpdatedAt(child));
+  }
+  const valid = timestamps.filter(Boolean).sort();
+  return valid.at(-1) || new Date().toISOString();
+}
+
+function getNodePageDocument(node) {
+  return node.indexDocument || node.generatedDocument || null;
+}
+
+function getDirectoryEntries(node) {
+  const entries = [];
+
+  for (const childNode of node.children.values()) {
+    entries.push(createDirectoryEntry(childNode));
+  }
+
+  for (const doc of node.documents) {
+    entries.push(createDocumentEntry(doc));
+  }
+
+  return sortEntries(entries);
+}
+
+function getSectionEntries(tree, doc) {
+  const node = doc.isIndex || doc.isGeneratedIndex
+    ? findTreeNodeByRoute(tree, doc.path)
+    : findTreeNode(tree, doc.directory);
+
+  if (!node) {
+    return [];
+  }
+
+  if (doc.isIndex || doc.isGeneratedIndex) {
+    return getDirectoryEntries(node);
+  }
+
+  const entries = getDirectoryEntries(node).filter((entry) => entry.path !== doc.path);
+  const sectionDoc = getNodePageDocument(node);
+  if (sectionDoc && sectionDoc.path !== doc.path) {
+    entries.unshift(createDocumentEntry(sectionDoc));
+  }
+
+  return sortEntries(entries);
+}
+
+function createDirectoryEntry(node) {
+  const pageDoc = getNodePageDocument(node);
+  return {
+    kind: "group",
+    title: pageDoc?.title || node.title,
+    path: node.route,
+    description: pageDoc?.description || summarizeNode(node),
+  };
+}
+
+function createDocumentEntry(doc) {
+  return {
+    kind: "page",
+    title: doc.title,
+    path: doc.path,
+    description: doc.description,
+  };
+}
+
+function sortEntries(entries) {
+  return [...entries].sort((a, b) => {
+    if (a.kind !== b.kind) {
+      return a.kind === "group" ? -1 : 1;
+    }
+    return a.title.localeCompare(b.title);
+  });
+}
+
+function summarizeNode(node) {
+  const parts = [];
+  if (node.children.size) {
+    parts.push(`${node.children.size} group${node.children.size === 1 ? "" : "s"}`);
+  }
+  if (node.documents.length) {
+    parts.push(`${node.documents.length} page${node.documents.length === 1 ? "" : "s"}`);
+  }
+  return parts.join(" / ") || "Empty group";
+}
+
+function buildBreadcrumbs(doc, routeTitleMap) {
+  if (doc.path === "/") {
     return [{ label: "Home", href: null }];
   }
 
+  const crumbs = [{ label: "Home", href: "/" }];
+  const segments = doc.path.replace(/^\/|\/$/g, "").split("/").filter(Boolean);
   let currentRoute = "/";
-  const crumbSegments = [...segments];
-  if (crumbSegments[crumbSegments.length - 1] === "index") {
-    crumbSegments.pop();
-  }
 
-  crumbSegments.forEach((segment, index) => {
+  segments.forEach((segment, index) => {
     currentRoute = currentRoute === "/" ? `/${segment}/` : `${currentRoute}${segment}/`;
-    const isLast = index === crumbSegments.length - 1;
+    const isLast = index === segments.length - 1;
     const label = routeTitleMap.get(currentRoute) || humanizeSegment(segment);
     crumbs.push({
       label,
@@ -498,7 +601,52 @@ function buildBreadcrumbs(doc, routeTitleMap) {
   return crumbs;
 }
 
-function renderDocumentPage({ doc, breadcrumbs, siblings, childDocuments }) {
+function buildDocumentBodyHtml(doc, tree) {
+  if (doc.isGeneratedIndex) {
+    const node = findTreeNodeByRoute(tree, doc.path);
+    return renderAutoDirectoryIndex(node);
+  }
+
+  return replaceDirectoryIndexMarker(doc.html, doc, tree);
+}
+
+function replaceDirectoryIndexMarker(html, doc, tree) {
+  const embedded = renderEmbeddedDirectoryIndex(doc, tree);
+  return html.replace(
+    /<p>(?:\s*(?:dlindex|\{\{dlindex\}\}|\[\[dlindex\]\])\s*)<\/p>/gi,
+    embedded,
+  );
+}
+
+function renderAutoDirectoryIndex(node) {
+  if (!node) {
+    return "";
+  }
+
+  return `
+    <p>このページは <code>index.md</code> が無いため、自動生成されたディレクトリ一覧です。</p>
+    ${renderEmbeddedDirectoryEntries(getDirectoryEntries(node))}
+  `;
+}
+
+function renderEmbeddedDirectoryIndex(doc, tree) {
+  const node = doc.isIndex || doc.isGeneratedIndex
+    ? findTreeNodeByRoute(tree, doc.path)
+    : findTreeNode(tree, doc.directory);
+
+  return renderEmbeddedDirectoryEntries(node ? getDirectoryEntries(node) : []);
+}
+
+function renderEmbeddedDirectoryEntries(entries) {
+  return `
+    <section class="directory-embed">
+      <h2>Directory index</h2>
+      ${entries.length ? renderEntryList(entries) : renderEmptyState("この階層にはまだ子ページがありません。", "Markdown を追加するとここに自動表示されます。")}
+    </section>
+  `;
+}
+
+function renderDocumentPage({ doc, breadcrumbs, sectionEntries, bodyHtml }) {
   const outline = doc.headings.length
     ? `
       <section class="sidebar-panel">
@@ -520,29 +668,16 @@ function renderDocumentPage({ doc, breadcrumbs, siblings, childDocuments }) {
     `
     : "";
 
-  const sectionLinks = siblings.length || childDocuments.length
+  const sectionLinks = sectionEntries.length
     ? `
       <section class="sidebar-panel">
-        <h2 class="sidebar-heading">${doc.isIndex ? "In this section" : "Nearby pages"}</h2>
-        <ul class="sidebar-list">
-          ${[...childDocuments, ...siblings]
-            .map(
-              (item) => `
-                <li>
-                  <a class="sidebar-link" href="${escapeHtml(prefixBasePath(item.path))}">
-                    <strong>${escapeHtml(item.title)}</strong>
-                    <span>${escapeHtml(item.path)}</span>
-                  </a>
-                </li>
-              `,
-            )
-            .join("")}
-        </ul>
+        <h2 class="sidebar-heading">${doc.isIndex || doc.isGeneratedIndex ? "In this directory" : "Nearby pages"}</h2>
+        ${renderSidebarEntryList(sectionEntries)}
       </section>
     `
     : "";
 
-  const githubActions = repoUrl
+  const githubActions = repoUrl && doc.sourcePath
     ? `
       <div class="article-actions">
         <a class="action-link" href="${escapeHtml(`${repoUrl}/blob/${sourceBranch}/${doc.sourcePath}`)}" target="_blank" rel="noreferrer">GitHubでこのページを見る</a>
@@ -551,19 +686,23 @@ function renderDocumentPage({ doc, breadcrumbs, siblings, childDocuments }) {
     `
     : "";
 
+  const sourceMeta = doc.sourcePath
+    ? `<span><strong>Source</strong> ${escapeHtml(doc.sourcePath)}</span>`
+    : `<span><strong>Source</strong> generated from directory</span>`;
+
   const content = `
     <div class="page-grid article-layout">
       <section class="article-panel article-main">
         ${renderBreadcrumbs(breadcrumbs)}
-        <div class="page-kicker">Document</div>
+        <div class="page-kicker">${doc.isGeneratedIndex ? "Directory" : "Document"}</div>
         <h1 class="page-title">${escapeHtml(doc.title)}</h1>
         ${doc.description ? `<p class="page-description">${escapeHtml(doc.description)}</p>` : ""}
         <div class="page-meta">
           <span><strong>URL</strong> ${escapeHtml(doc.path)}</span>
           <span><strong>Updated</strong> ${escapeHtml(formatDate(doc.updatedAt))}</span>
-          <span><strong>Source</strong> ${escapeHtml(doc.sourcePath)}</span>
+          ${sourceMeta}
         </div>
-        <div class="markdown">${doc.html}</div>
+        <div class="markdown">${bodyHtml}</div>
         ${githubActions}
       </section>
       <aside class="layout-stack">
@@ -584,7 +723,7 @@ function renderDocumentPage({ doc, breadcrumbs, siblings, childDocuments }) {
 function renderListingPage({ docs, tree }) {
   const directSections = renderDirectorySections(tree);
   const recentDocs = docs
-    .filter((doc) => doc.path !== "/")
+    .filter((doc) => doc.path !== "/" && !doc.isGeneratedIndex)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 8);
 
@@ -621,10 +760,10 @@ function renderListingPage({ docs, tree }) {
 }
 
 function renderHomePage({ docs, tree }) {
-  const docCount = docs.length;
+  const markdownCount = docs.filter((doc) => !doc.isGeneratedIndex).length;
   const sectionCount = countSections(tree);
   const recentDocs = docs
-    .filter((doc) => doc.path !== "/")
+    .filter((doc) => doc.path !== "/" && !doc.isGeneratedIndex)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 6);
 
@@ -637,7 +776,7 @@ function renderHomePage({ docs, tree }) {
         <div class="overview-hero">
           <div class="overview-stat">
             <span class="overview-stat-label">Documents</span>
-            <span class="overview-stat-value">${docCount}</span>
+            <span class="overview-stat-value">${markdownCount}</span>
           </div>
           <div class="overview-stat">
             <span class="overview-stat-label">Sections</span>
@@ -645,7 +784,7 @@ function renderHomePage({ docs, tree }) {
           </div>
           <div class="overview-stat">
             <span class="overview-stat-label">Search</span>
-            <span class="overview-stat-value">${docCount ? "Ready" : "Waiting"}</span>
+            <span class="overview-stat-value">${markdownCount ? "Ready" : "Waiting"}</span>
           </div>
         </div>
       </section>
@@ -672,7 +811,7 @@ function renderHomePage({ docs, tree }) {
 
 function injectHomeOverview({ html, docs, tree }) {
   const recentDocs = docs
-    .filter((doc) => doc.path !== "/")
+    .filter((doc) => doc.path !== "/" && !doc.isGeneratedIndex)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 6);
 
@@ -682,7 +821,7 @@ function injectHomeOverview({ html, docs, tree }) {
       <div class="overview-hero">
         <div class="overview-stat">
           <span class="overview-stat-label">Documents</span>
-          <span class="overview-stat-value">${docs.length}</span>
+          <span class="overview-stat-value">${docs.filter((doc) => !doc.isGeneratedIndex).length}</span>
         </div>
         <div class="overview-stat">
           <span class="overview-stat-label">Sections</span>
@@ -748,7 +887,7 @@ function renderDirectorySections(tree) {
   }
 
   for (const childNode of [...tree.children.values()].sort((a, b) => a.route.localeCompare(b.route))) {
-    sections.push(renderDirectoryNode(childNode));
+    sections.push(renderDirectoryNode(childNode, { recursive: false }));
   }
 
   if (!sections.length) {
@@ -758,17 +897,19 @@ function renderDirectorySections(tree) {
   return sections.join("");
 }
 
-function renderDirectoryNode(node) {
+function renderDirectoryNode(node, { recursive = true } = {}) {
   const items = [];
   if (node.indexDocument) {
     items.push(node.indexDocument);
   }
   items.push(...node.documents);
 
-  const childSections = [...node.children.values()]
-    .sort((a, b) => a.route.localeCompare(b.route))
-    .map((child) => renderDirectoryNode(child))
-    .join("");
+  const childSections = recursive
+    ? [...node.children.values()]
+        .sort((a, b) => a.route.localeCompare(b.route))
+        .map((child) => renderDirectoryNode(child, { recursive: true }))
+        .join("")
+    : "";
 
   return `
     <section class="directory-section">
@@ -776,42 +917,54 @@ function renderDirectoryNode(node) {
         <h3 class="directory-title">
           <a href="${escapeHtml(prefixBasePath(node.route))}">${escapeHtml(node.title)}</a>
         </h3>
-        <span class="directory-meta">${items.length + countDescendantIndexPages(node.children)} page(s)</span>
+        <span class="directory-meta">${getDirectoryEntries(node).length} item(s)</span>
       </div>
-      ${items.length ? renderDocList(items) : ""}
+      ${renderEntryList(getDirectoryEntries(node))}
       ${childSections}
     </section>
   `;
 }
 
-function countDescendantIndexPages(children) {
-  let count = 0;
-  for (const node of children.values()) {
-    if (node.indexDocument) {
-      count += 1;
-    }
-    count += node.documents.length;
-    count += countDescendantIndexPages(node.children);
-  }
-  return count;
+function renderDocList(docs) {
+  return renderEntryList(docs.map((doc) => createDocumentEntry(doc)));
 }
 
-function renderDocList(docs) {
-  const sortedDocs = [...docs].sort((a, b) => a.title.localeCompare(b.title));
+function renderEntryList(entries) {
+  const sortedEntries = sortEntries(entries);
   return `
     <div class="doc-list">
-      ${sortedDocs
+      ${sortedEntries
         .map(
-          (doc) => `
-            <a class="doc-card" href="${escapeHtml(prefixBasePath(doc.path))}">
-              <span class="doc-card-title">${escapeHtml(doc.title || doc.fallbackName)}</span>
-              <span class="doc-card-path">${escapeHtml(doc.path)}</span>
-              ${doc.description ? `<span class="doc-card-description">${escapeHtml(doc.description)}</span>` : ""}
+          (entry) => `
+            <a class="doc-card" href="${escapeHtml(prefixBasePath(entry.path))}">
+              <span class="doc-card-kind">${entry.kind === "group" ? "Group" : "Page"}</span>
+              <span class="doc-card-title">${escapeHtml(entry.title)}</span>
+              <span class="doc-card-path">${escapeHtml(entry.path)}</span>
+              ${entry.description ? `<span class="doc-card-description">${escapeHtml(entry.description)}</span>` : ""}
             </a>
           `,
         )
         .join("")}
     </div>
+  `;
+}
+
+function renderSidebarEntryList(entries) {
+  return `
+    <ul class="sidebar-list">
+      ${sortEntries(entries)
+        .map(
+          (entry) => `
+            <li>
+              <a class="sidebar-link" href="${escapeHtml(prefixBasePath(entry.path))}">
+                <strong>${escapeHtml(entry.title)}</strong>
+                <span>${escapeHtml(entry.kind === "group" ? `${entry.path} group` : entry.path)}</span>
+              </a>
+            </li>
+          `,
+        )
+        .join("")}
+    </ul>
   `;
 }
 
@@ -959,10 +1112,10 @@ function serializeTree(node) {
   return {
     title: node.title,
     route: node.route,
-    indexDocument: node.indexDocument
+    indexDocument: getNodePageDocument(node)
       ? {
-          title: node.indexDocument.title,
-          path: node.indexDocument.path,
+          title: getNodePageDocument(node).title,
+          path: getNodePageDocument(node).path,
         }
       : null,
     documents: node.documents.map((doc) => ({
@@ -979,6 +1132,15 @@ function countSections(tree) {
     count += countSections(child);
   }
   return count;
+}
+
+function parentDirectoryFromRoute(route) {
+  const normalized = route.replace(/^\/|\/$/g, "");
+  if (!normalized) {
+    return "";
+  }
+  const parent = path.posix.dirname(normalized);
+  return parent === "." ? "" : parent;
 }
 
 function toRoutePath(relativeDocPath) {

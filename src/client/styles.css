@@ -459,6 +459,19 @@ kbd {
   margin-bottom: 0.3rem;
 }
 
+.doc-card-kind {
+  display: inline-flex;
+  margin-bottom: 0.45rem;
+  padding: 0.18rem 0.48rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-soft);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .doc-card-path,
 .search-page-path,
 .search-result-path {
@@ -630,6 +643,14 @@ mark {
 
 .home-intro {
   margin-bottom: 1.5rem;
+}
+
+.directory-embed {
+  margin-top: 2rem;
+}
+
+.directory-embed h2 {
+  margin-top: 0;
 }
 
 .article-actions {
