@@ -197,7 +197,7 @@ export function resolveBuildConfig(userConfig: BuildConfig = {}): ResolvedBuildC
     customCssPath: userConfig.theme?.customCss
       ? path.resolve(currentRoot, userConfig.theme.customCss)
       : "",
-    basePath: normalizeBasePath(userConfig.basePath || process.env.SITE_BASE || "/"),
+    basePath: normalizeBasePath(process.env.SITE_BASE ?? userConfig.basePath ?? "/"),
     siteName: userConfig.siteName || process.env.SITE_NAME || humanizeSegment(path.basename(currentRoot)),
     repoUrl: userConfig.github?.repoUrl || getGitHubRepoUrl(currentRoot),
     sourceBranch: userConfig.github?.branch || process.env.SOURCE_BRANCH || getGitBranch(currentRoot),
