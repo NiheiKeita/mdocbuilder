@@ -179,6 +179,13 @@ function closeDropdown() {
   }
 }
 
+function isTypingTarget(target) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+}
+
 function renderDropdownError(message) {
   if (!searchDropdown) {
     return;
@@ -328,6 +335,12 @@ if (searchForm && searchInput) {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       closeDropdown();
+    }
+
+    if (event.key === "/" && !isTypingTarget(event.target)) {
+      event.preventDefault();
+      searchInput.focus();
+      searchInput.select();
     }
   });
 }

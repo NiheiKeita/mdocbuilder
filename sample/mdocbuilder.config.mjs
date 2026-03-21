@@ -3,8 +3,9 @@ export default {
   docsDir: "docs",
   outDir: "dist",
   github: {
-    repoUrl: "https://github.com/owner/mdocbuilder",
+    repoUrl: "https://github.com/niheikeita/mdocbuilder",
     branch: "main",
+    sourceRoot: "sample",
   },
   theme: {
     customCss: "./docs-theme.css",

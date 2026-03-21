@@ -18,6 +18,7 @@ export default {
   github: {
     repoUrl: "https://github.com/owner/repo",
     branch: "main",
+    sourceRoot: "docs-app",
   },
   theme: {
     customCss: "./docs-theme.css",
@@ -35,6 +36,7 @@ export default {
 | `basePath` | GitHub Pages などのサブパス対応 |
 | `github.repoUrl` | GitHub で見る / 編集するリンクの元 URL |
 | `github.branch` | GitHub リンクに使うブランチ名 |
+| `github.sourceRoot` | サブディレクトリ配下で build する場合の source ファイル起点 |
 | `theme.customCss` | デフォルトテーマの上から読み込む CSS |
 
 ## `basePath` の使い分け

@@ -28,6 +28,7 @@ export default {
   github: {
     repoUrl: "https://github.com/owner/repo",
     branch: "main",
+    sourceRoot: "docs-app",
   },
   theme: {
     customCss: "./docs-theme.css",

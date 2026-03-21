@@ -63,6 +63,11 @@ test("loadConfig reads mdocbuilder.config.mjs and custom CSS is emitted", async 
         siteName: "Configured Docs",
         docsDir: "docs",
         outDir: "public",
+        github: {
+          repoUrl: "https://github.com/example/mdocbuilder",
+          branch: "main",
+          sourceRoot: "sample"
+        },
         theme: {
           customCss: "./docs-theme.css"
         }
@@ -76,6 +81,7 @@ test("loadConfig reads mdocbuilder.config.mjs and custom CSS is emitted", async 
   const html = await fs.readFile(path.join(rootDir, "public", "index.html"), "utf8");
   assert.match(html, /Configured Docs/);
   assert.match(html, /assets\/custom\.css/);
+  assert.match(html, /https:\/\/github\.com\/example\/mdocbuilder\/edit\/main\/sample\/docs\/index\.md/);
 
   const customCss = await fs.readFile(path.join(rootDir, "public", "assets", "custom.css"), "utf8");
   assert.match(customCss, /--accent/);

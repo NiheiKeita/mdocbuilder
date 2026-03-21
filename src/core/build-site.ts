@@ -18,6 +18,7 @@ export type BuildConfig = {
   github?: {
     repoUrl?: string;
     branch?: string;
+    sourceRoot?: string;
   };
   theme?: {
     directory?: string;
@@ -35,6 +36,7 @@ export type ResolvedBuildConfig = {
   siteName: string;
   repoUrl: string;
   sourceBranch: string;
+  sourceRoot: string;
 };
 
 type Heading = {
@@ -89,6 +91,7 @@ let basePath = "/";
 let siteName = humanizeSegment(path.basename(rootDir));
 let repoUrl = "";
 let sourceBranch = "main";
+let sourceRoot = "";
 
 const md = new MarkdownIt({
   html: true,
@@ -175,6 +178,7 @@ function configureBuild(userConfig: BuildConfig): void {
   siteName = resolved.siteName;
   repoUrl = resolved.repoUrl;
   sourceBranch = resolved.sourceBranch;
+  sourceRoot = resolved.sourceRoot;
 }
 
 export function resolveBuildConfig(userConfig: BuildConfig = {}): ResolvedBuildConfig {
@@ -193,6 +197,7 @@ export function resolveBuildConfig(userConfig: BuildConfig = {}): ResolvedBuildC
     siteName: userConfig.siteName || process.env.SITE_NAME || humanizeSegment(path.basename(currentRoot)),
     repoUrl: userConfig.github?.repoUrl || getGitHubRepoUrl(currentRoot),
     sourceBranch: userConfig.github?.branch || process.env.SOURCE_BRANCH || getGitBranch(currentRoot),
+    sourceRoot: normalizeSourceRoot(userConfig.github?.sourceRoot || ""),
   };
 }
 
@@ -779,26 +784,28 @@ function renderDocumentPage({ doc, breadcrumbs, sectionEntries, bodyHtml }) {
   const githubActions = repoUrl && doc.sourcePath
     ? `
       <div class="article-actions">
-        <a class="action-link" href="${escapeHtml(`${repoUrl}/blob/${sourceBranch}/${doc.sourcePath}`)}" target="_blank" rel="noreferrer">GitHubでこのページを見る</a>
-        <a class="action-link" href="${escapeHtml(`${repoUrl}/edit/${sourceBranch}/${doc.sourcePath}`)}" target="_blank" rel="noreferrer">GitHubで編集する</a>
+        <a class="action-link" href="${escapeHtml(buildGitHubSourceUrl("blob", doc.sourcePath))}" target="_blank" rel="noreferrer">GitHubでこのページを見る</a>
+        <a class="action-link" href="${escapeHtml(buildGitHubSourceUrl("edit", doc.sourcePath))}" target="_blank" rel="noreferrer">GitHubで編集する</a>
       </div>
     `
     : "";
 
   const sourceMeta = doc.sourcePath
-    ? `<span><strong>Source</strong> ${escapeHtml(doc.sourcePath)}</span>`
-    : `<span><strong>Source</strong> generated from directory</span>`;
+    ? `<span class="meta-chip"><strong>Source</strong> ${escapeHtml(doc.sourcePath)}</span>`
+    : `<span class="meta-chip"><strong>Source</strong> generated from directory</span>`;
 
   const content = `
     <div class="page-grid article-layout">
       <section class="article-panel article-main">
         ${renderBreadcrumbs(breadcrumbs)}
-        <div class="page-kicker">${doc.isGeneratedIndex ? "Directory" : "Document"}</div>
-        <h1 class="page-title">${escapeHtml(doc.title)}</h1>
-        ${doc.description ? `<p class="page-description">${escapeHtml(doc.description)}</p>` : ""}
+        <header class="page-header">
+          <div class="page-kicker">${doc.isGeneratedIndex ? "Directory" : "Document"}</div>
+          <h1 class="page-title">${escapeHtml(doc.title)}</h1>
+          ${doc.description ? `<p class="page-description">${escapeHtml(doc.description)}</p>` : ""}
+        </header>
         <div class="page-meta">
-          <span><strong>URL</strong> ${escapeHtml(doc.path)}</span>
-          <span><strong>Updated</strong> ${escapeHtml(formatDate(doc.updatedAt))}</span>
+          <span class="meta-chip"><strong>URL</strong> ${escapeHtml(doc.path)}</span>
+          <span class="meta-chip"><strong>Updated</strong> ${escapeHtml(formatDate(doc.updatedAt))}</span>
           ${sourceMeta}
         </div>
         <div class="markdown">${bodyHtml}</div>
@@ -1020,7 +1027,7 @@ function renderSidebarEntryList(entries) {
             <li>
               <a class="sidebar-link" href="${escapeHtml(prefixBasePath(entry.path))}">
                 <strong>${escapeHtml(entry.title)}</strong>
-                <span>${escapeHtml(entry.kind === "group" ? `${entry.path} group` : entry.path)}</span>
+                <span class="sidebar-link-meta">${escapeHtml(entry.kind === "group" ? `${entry.path} group` : entry.path)}</span>
               </a>
             </li>
           `,
@@ -1084,18 +1091,22 @@ function renderShell({ title, description, currentPath, content }) {
       <header class="site-header">
         <div class="site-header-inner">
           <a class="brand-link" href="${escapeHtml(prefixBasePath("/"))}">
-            <span class="brand-mark">Docs</span>
-            <span class="brand-name">${escapeHtml(siteName)}</span>
+            <span class="brand-badge" aria-hidden="true">M</span>
+            <span class="brand-copy">
+              <span class="brand-mark">Markdown Docs</span>
+              <span class="brand-name">${escapeHtml(siteName)}</span>
+            </span>
           </a>
           <form class="search-shell" data-search-form action="${escapeHtml(prefixBasePath("/search/"))}" method="get">
             <label class="search-label">
-              <span>Search</span>
-              <input class="search-input" type="search" name="q" data-search-input placeholder="Find title, path, heading, text" autocomplete="off">
+              <span class="search-icon" aria-hidden="true">⌕</span>
+              <input class="search-input" type="search" name="q" data-search-input placeholder="ドキュメントを検索" autocomplete="off">
+              <span class="search-shortcut" aria-hidden="true">/</span>
             </label>
             <div class="search-dropdown" data-search-dropdown hidden></div>
           </form>
           <nav class="header-links">
-            <a class="header-link" href="${escapeHtml(prefixBasePath("/documents/"))}">All docs</a>
+            <a class="header-link header-link-primary" href="${escapeHtml(prefixBasePath("/documents/"))}">ドキュメント一覧</a>
             ${repoLink}
           </nav>
         </div>
@@ -1167,6 +1178,7 @@ async function writeDataFiles({ docs, tree }) {
           basePath,
           repoUrl,
           sourceBranch,
+          sourceRoot,
         },
         documents,
         directories: serializeTree(tree),
@@ -1251,6 +1263,15 @@ function normalizeBasePath(value) {
     return "/";
   }
   return `/${value.replace(/^\/+|\/+$/g, "")}/`;
+}
+
+function normalizeSourceRoot(value) {
+  return value.replace(/^\/+|\/+$/g, "");
+}
+
+function buildGitHubSourceUrl(mode, sourcePath) {
+  const sourceLocation = sourceRoot ? `${sourceRoot}/${sourcePath}` : sourcePath;
+  return `${repoUrl}/${mode}/${sourceBranch}/${sourceLocation}`;
 }
 
 function prefixBasePath(route) {
