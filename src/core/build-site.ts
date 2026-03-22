@@ -774,7 +774,7 @@ function renderDocumentPage({ doc, breadcrumbs, sectionEntries, bodyHtml }) {
 
   const sectionLinks = doc.path !== "/" && sectionEntries.length
     ? `
-      <section class="sidebar-panel">
+      <section class="sidebar-panel sidebar-panel-nearby">
         <h2 class="sidebar-heading">${doc.isIndex || doc.isGeneratedIndex ? "In this directory" : "Nearby pages"}</h2>
         ${renderSidebarEntryList(sectionEntries)}
       </section>
@@ -1020,7 +1020,6 @@ function renderSidebarEntryList(entries) {
             <li>
               <a class="sidebar-link" href="${escapeHtml(prefixBasePath(entry.path))}">
                 <strong>${escapeHtml(entry.title)}</strong>
-                <span class="sidebar-link-meta">${escapeHtml(entry.kind === "group" ? `${entry.path} group` : entry.path)}</span>
               </a>
             </li>
           `,
@@ -1084,11 +1083,7 @@ function renderShell({ title, description, currentPath, content }) {
       <header class="site-header">
         <div class="site-header-inner">
           <a class="brand-link" href="${escapeHtml(prefixBasePath("/"))}">
-            <span class="brand-badge" aria-hidden="true">M</span>
-            <span class="brand-copy">
-              <span class="brand-mark">Markdown Docs</span>
-              <span class="brand-name">${escapeHtml(siteName)}</span>
-            </span>
+            <span class="brand-name">${escapeHtml(siteName)}</span>
           </a>
           <button class="search-toggle" type="button" data-search-toggle aria-expanded="false" aria-controls="site-search">
             <span class="search-toggle-icon" aria-hidden="true">⌕</span>
