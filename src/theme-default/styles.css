@@ -94,6 +94,7 @@ kbd {
 .site-header {
   background: color-mix(in srgb, var(--surface) 96%, transparent);
   border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .site-header-inner,
@@ -115,6 +116,7 @@ kbd {
   display: inline-flex;
   align-items: center;
   gap: 0.85rem;
+  min-width: 0;
 }
 
 .brand-badge {
@@ -135,6 +137,7 @@ kbd {
   display: flex;
   flex-direction: column;
   gap: 0.08rem;
+  min-width: 0;
 }
 
 .brand-mark {
@@ -149,6 +152,7 @@ kbd {
   font-size: 1.08rem;
   font-weight: 800;
   letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 
 .header-links {
@@ -192,6 +196,7 @@ kbd {
   background: color-mix(in srgb, var(--surface) 85%, transparent);
   color: var(--text-soft);
   transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+  white-space: nowrap;
 }
 
 .header-link:hover,
@@ -475,6 +480,11 @@ kbd {
   top: 5.5rem;
 }
 
+.sidebar-panel-outline {
+  padding: 1rem 0.95rem;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+}
+
 .sidebar-heading,
 .overview-title,
 .search-page-title {
@@ -545,6 +555,59 @@ kbd {
   display: block;
   margin-top: 0.28rem;
   font-size: 0.83rem;
+}
+
+.sidebar-panel-outline .sidebar-heading {
+  margin: 0 0 0.75rem;
+  padding: 0 0.9rem;
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sidebar-panel-outline .sidebar-list {
+  gap: 0.1rem;
+}
+
+.sidebar-panel-outline .sidebar-link {
+  position: relative;
+  padding: 0.45rem 0.9rem 0.45rem 1.15rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-soft);
+  transform: none;
+}
+
+.sidebar-panel-outline .sidebar-link::before {
+  content: "";
+  position: absolute;
+  left: 0.35rem;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.sidebar-panel-outline .sidebar-link strong {
+  color: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.sidebar-panel-outline .sidebar-link:hover,
+.sidebar-panel-outline .sidebar-link:focus-visible {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  color: var(--text);
+}
+
+.sidebar-panel-outline .sidebar-link:hover::before,
+.sidebar-panel-outline .sidebar-link:focus-visible::before {
+  background: var(--accent);
 }
 
 .doc-card-title,
@@ -649,6 +712,7 @@ kbd {
 
 .search-shell {
   position: relative;
+  min-width: 0;
 }
 
 .search-label {
@@ -782,11 +846,16 @@ mark {
 
 @media (max-width: 960px) {
   .site-header-inner {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 0.8rem;
   }
 
   .header-links {
-    justify-content: flex-start;
+    justify-content: flex-end;
+  }
+
+  .search-shell {
+    grid-column: 1 / -1;
   }
 
   .article-layout,
@@ -805,9 +874,10 @@ mark {
 
 @media (max-width: 720px) {
   .site-header-inner {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     gap: 0.9rem;
     align-items: center;
+    padding: 0.75rem 0;
   }
 
   .site-header-inner,
@@ -819,6 +889,8 @@ mark {
   .search-toggle {
     display: inline-flex;
     justify-self: end;
+    min-width: 2.5rem;
+    padding: 0.55rem;
   }
 
   .search-toggle-label {
@@ -835,9 +907,24 @@ mark {
   }
 
   .header-links {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-    flex-wrap: wrap;
+    grid-column: auto;
+    justify-content: flex-end;
+    gap: 0.45rem;
+  }
+
+  .header-links .header-link:not(.header-link-primary) {
+    display: none;
+  }
+
+  .header-link,
+  .search-toggle {
+    min-height: 2.35rem;
+    border-radius: 12px;
+  }
+
+  .header-link {
+    padding: 0.5rem 0.72rem;
+    font-size: 0.88rem;
   }
 
   .site-main {
@@ -862,9 +949,22 @@ mark {
   }
 
   .brand-badge {
-    width: 2.1rem;
-    height: 2.1rem;
+    width: 2rem;
+    height: 2rem;
     border-radius: 0.75rem;
+    box-shadow: none;
+  }
+
+  .brand-copy {
+    gap: 0;
+  }
+
+  .brand-mark {
+    display: none;
+  }
+
+  .brand-name {
+    font-size: 0.98rem;
   }
 
   .search-shortcut {

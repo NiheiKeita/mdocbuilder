@@ -753,7 +753,7 @@ function renderEmbeddedDirectoryEntries(entries) {
 function renderDocumentPage({ doc, breadcrumbs, sectionEntries, bodyHtml }) {
   const outline = doc.headings.length
     ? `
-      <section class="sidebar-panel">
+      <section class="sidebar-panel sidebar-panel-outline">
         <h2 class="sidebar-heading">On this page</h2>
         <ul class="sidebar-list">
           ${doc.headings
@@ -1103,7 +1103,7 @@ function renderShell({ title, description, currentPath, content }) {
             <div class="search-dropdown" data-search-dropdown hidden></div>
           </form>
           <nav class="header-links">
-            <a class="header-link header-link-primary" href="${escapeHtml(prefixBasePath("/documents/"))}">ドキュメント一覧</a>
+            <a class="header-link header-link-primary" href="${escapeHtml(prefixBasePath("/documents/"))}">一覧</a>
             ${repoLink}
           </nav>
         </div>
