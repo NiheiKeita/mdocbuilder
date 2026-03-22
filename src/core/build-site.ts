@@ -804,10 +804,10 @@ function renderDocumentPage({ doc, breadcrumbs, sectionEntries, bodyHtml }) {
         </div>
         <div class="markdown">${bodyHtml}</div>
         ${githubActions}
+        ${sectionLinks}
       </section>
       <aside class="layout-stack">
         ${outline}
-        ${sectionLinks}
       </aside>
     </div>
   `;

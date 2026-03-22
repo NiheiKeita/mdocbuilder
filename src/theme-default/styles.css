@@ -456,6 +456,8 @@ kbd {
 }
 
 .sidebar-panel-nearby {
+  position: static;
+  margin-top: 1.75rem;
   padding: 1rem;
 }
 
