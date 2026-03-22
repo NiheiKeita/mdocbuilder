@@ -1083,7 +1083,7 @@ function renderShell({ title, description, currentPath, content }) {
       <header class="site-header">
         <div class="site-header-inner">
           <a class="brand-link" href="${escapeHtml(prefixBasePath("/"))}">
-            <span class="brand-name">${escapeHtml(siteName)}</span>
+            <span class="brand-home">Home</span>
           </a>
           <button class="search-toggle" type="button" data-search-toggle aria-expanded="false" aria-controls="site-search">
             <span class="search-toggle-icon" aria-hidden="true">⌕</span>
