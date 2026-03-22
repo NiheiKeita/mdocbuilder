@@ -1106,13 +1106,6 @@ function renderShell({ title, description, currentPath, content }) {
       <main class="site-main">
         ${content}
       </main>
-      <footer class="site-footer">
-        <div class="site-footer-inner">
-          <div class="site-footer-card">
-            Markdown を docs 配下に置くだけで、一覧・検索・パンくず付きのドキュメントサイトとして出力されます。
-          </div>
-        </div>
-      </footer>
     </div>
   </body>
 </html>`;
