@@ -757,16 +757,16 @@ function renderDocumentPage({ doc, breadcrumbs, sectionEntries, bodyHtml }) {
         <h2 class="sidebar-heading">On this page</h2>
         <ul class="sidebar-list">
           ${doc.headings
-            .map(
-              (heading) => `
+      .map(
+        (heading) => `
                 <li>
                   <a class="sidebar-link" href="#${escapeHtml(heading.slug)}">
                     <strong>${escapeHtml(heading.text)}</strong>
                   </a>
                 </li>
               `,
-            )
-            .join("")}
+      )
+      .join("")}
         </ul>
       </section>
     `
@@ -831,9 +831,9 @@ function renderListingPage({ docs, tree }) {
     <div class="section-layout">
       <section class="overview-panel">
         ${renderBreadcrumbs([
-          { label: "Home", href: "/" },
-          { label: "Documents", href: null },
-        ])}
+    { label: "Home", href: "/" },
+    { label: "Documents", href: null },
+  ])}
         <div class="page-kicker">Overview</div>
         <h1 class="page-title">All documents</h1>
         <p class="page-description">ディレクトリ構造ベースで全体像を辿れる一覧です。タイトルが無いページはファイル名から補完します。</p>
@@ -913,9 +913,9 @@ function renderSearchPage() {
   const content = `
     <section class="search-page-shell" data-search-page>
       ${renderBreadcrumbs([
-        { label: "Home", href: "/" },
-        { label: "Search", href: null },
-      ])}
+    { label: "Home", href: "/" },
+    { label: "Search", href: null },
+  ])}
       <header class="search-page-header">
         <div class="page-kicker">Search</div>
         <h1 class="page-title">Find a page fast</h1>
@@ -969,9 +969,9 @@ function renderDirectoryNode(node, { recursive = true } = {}) {
 
   const childSections = recursive
     ? [...node.children.values()]
-        .sort((a, b) => a.route.localeCompare(b.route))
-        .map((child) => renderDirectoryNode(child, { recursive: true }))
-        .join("")
+      .sort((a, b) => a.route.localeCompare(b.route))
+      .map((child) => renderDirectoryNode(child, { recursive: true }))
+      .join("")
     : "";
 
   return `
@@ -997,16 +997,16 @@ function renderEntryList(entries) {
   return `
     <div class="doc-list">
       ${sortedEntries
-        .map(
-          (entry) => `
+      .map(
+        (entry) => `
             <a class="doc-card" href="${escapeHtml(prefixBasePath(entry.path))}">
               <span class="doc-card-kind">${entry.kind === "group" ? "Group" : "Page"}</span>
               <span class="doc-card-title">${escapeHtml(entry.title)}</span>
               ${entry.description ? `<span class="doc-card-description">${escapeHtml(entry.description)}</span>` : ""}
             </a>
           `,
-        )
-        .join("")}
+      )
+      .join("")}
     </div>
   `;
 }
@@ -1015,16 +1015,16 @@ function renderSidebarEntryList(entries) {
   return `
     <ul class="sidebar-list">
       ${sortEntries(entries)
-        .map(
-          (entry) => `
+      .map(
+        (entry) => `
             <li>
               <a class="sidebar-link" href="${escapeHtml(prefixBasePath(entry.path))}">
                 <strong>${escapeHtml(entry.title)}</strong>
               </a>
             </li>
           `,
-        )
-        .join("")}
+      )
+      .join("")}
     </ul>
   `;
 }
@@ -1042,15 +1042,15 @@ function renderBreadcrumbs(items) {
   return `
     <nav class="breadcrumbs" aria-label="Breadcrumb">
       ${items
-        .map((item, index) => {
-          const separator = index === 0 ? "" : `<span>/</span>`;
-          const label = escapeHtml(item.label);
-          if (item.href) {
-            return `${separator}<a href="${escapeHtml(prefixBasePath(item.href))}">${label}</a>`;
-          }
-          return `${separator}<span aria-current="page">${label}</span>`;
-        })
-        .join("")}
+      .map((item, index) => {
+        const separator = index === 0 ? "" : `<span>/</span>`;
+        const label = escapeHtml(item.label);
+        if (item.href) {
+          return `${separator}<a href="${escapeHtml(prefixBasePath(item.href))}">${label}</a>`;
+        }
+        return `${separator}<span aria-current="page">${label}</span>`;
+      })
+      .join("")}
     </nav>
   `;
 }
@@ -1180,9 +1180,9 @@ function serializeTree(node) {
     route: node.route,
     indexDocument: getNodePageDocument(node)
       ? {
-          title: getNodePageDocument(node).title,
-          path: getNodePageDocument(node).path,
-        }
+        title: getNodePageDocument(node).title,
+        path: getNodePageDocument(node).path,
+      }
       : null,
     documents: node.documents.map((doc) => ({
       title: doc.title,
@@ -1350,3 +1350,4 @@ function getGitHubRepoUrl(cwd = rootDir) {
     return "";
   }
 }
+
