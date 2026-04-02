@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           registry-url: "https://registry.npmjs.org"
 
@@ -40,8 +40,18 @@ jobs:
           npm test
           npm pack --dry-run
 
+      - name: Select npm dist-tag
+        id: dist_tag
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "tag=next" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish to npm
-        run: npm publish --access public --provenance
+        run: npm publish --access public --provenance --tag "${{ steps.dist_tag.outputs.tag }}"
 
       - name: Create GitHub release
         env:

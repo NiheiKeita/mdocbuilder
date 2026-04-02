@@ -6,7 +6,7 @@
   "homepage": "https://github.com/NiheiKeita/mdocbuilder#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NiheiKeita/mdocbuilder.git"
+    "url": "https://github.com/NiheiKeita/mdocbuilder.git"
   },
   "bugs": {
     "url": "https://github.com/NiheiKeita/mdocbuilder/issues"
@@ -23,7 +23,7 @@
   ],
   "type": "module",
   "bin": {
-    "mdocbuilder": "./bin/mdocbuilder.mjs"
+    "mdocbuilder": "bin/mdocbuilder.mjs"
   },
   "exports": {
     ".": {
