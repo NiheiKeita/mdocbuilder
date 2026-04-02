@@ -1,6 +1,6 @@
 {
   "name": "mdocbuilder",
-  "version": "0.0.1",
+  "version": "0.0.1-r1",
   "description": "Static documentation site generator for Markdown with search, breadcrumbs, and directory indexes.",
   "license": "MIT",
   "homepage": "https://github.com/NiheiKeita/mdocbuilder#readme",
